@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Data;
 using API.Models;
+using Microsoft.AspNetCore.SignalR;
+using API.Hubs;
+using API.Hubs.Clients;
 
 namespace API.Controllers
 {
@@ -15,10 +18,12 @@ namespace API.Controllers
     public class EmployeesController : ControllerBase
     {
         private readonly EmployeeDbContext _context;
+        private readonly IHubContext<EmployeesHub, IEmployeesHub> _employees;
 
-        public EmployeesController(EmployeeDbContext context)
+        public EmployeesController(EmployeeDbContext context, IHubContext<EmployeesHub, IEmployeesHub> employees)
         {
             _context = context;
+            _employees = employees;
         }
 
         // GET: api/Employees
@@ -76,12 +81,23 @@ namespace API.Controllers
         // POST: api/Employees
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Employee>> PostEmployee(Employee employee)
+        public async Task<ActionResult> PostEmployee(NewEmployee newEmployee)
         {
+            var employee = new Employee
+            {
+                Name = newEmployee.Name,
+                Department=newEmployee.Department,
+                Position=newEmployee.Position,
+                Salary=newEmployee.Salary,
+            };
+
             _context.Employees.Add(employee);
+
+            await _employees.Clients.All.ReceiveNewEmployee(newEmployee);
+
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetEmployee", new { id = employee.Id }, employee);
+            return Ok("Employee Addedd Successfully");
         }
 
         // DELETE: api/Employees/5
